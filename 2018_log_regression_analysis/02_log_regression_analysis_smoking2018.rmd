@@ -5,12 +5,11 @@ output: pdf_document
 ---
 
 ```{r setup, include=FALSE, warning = FALSE}
-knitr::opts_chunk$set(cache = TRUE, warning = FALSE, message = FALSE, echo = FALSE)
+knitr::opts_chunk$set(cache = TRUE, warning = FALSE, message = FALSE)
 ```
 
 This markdown document serves as a manual for repeating this analysis.The code chunks are in darker boxes while the results are in lighter boxes just below code chunk. 
 
-### Libraries Needed for Execution of Code
 ```{r, message = FALSE, warning = FALSE}
 library(tidyverse) #data wrangling, analysis and visualization
 library(gridExtra) #data visualization
@@ -31,7 +30,7 @@ library(lubridate) #library for working with or coercing dates
 
 
 ### Cleaning data and Assigning Variables
-The data set contains only people who are current and former smokers. Total observations, variables collected are reported below.
+The data set contains only people who are current and former smokers. 
 
 ```{r}
 nhis18_modelling <- read.csv("nhis18_modelling.csv")
@@ -41,20 +40,25 @@ nhis18_modelling$binned_age <- factor(nhis18_modelling$binned_age,
                                       levels = c("18-24", "25-44","45-64","65+"))
 nhis18_modelling$SEX <- factor(nhis18_modelling$SEX)
 nhis18_modelling$RACERPI2 <- factor(nhis18_modelling$RACERPI2, 
-                                    levels = c("white","Black/African American", "AIAN", "Asian", "Multiple"))
+                                    levels = c("white","Black/African American",
+                                               "AIAN", "Asian", "Multiple"))
 nhis18_modelling$EDUC1 <- factor(nhis18_modelling$EDUC1,
-                                 levels = c("<HS Grad", "HS Grad", "<College Grad", "College Grad+"))
+                                 levels = c("<HS Grad", "HS Grad",
+                                            "<College Grad", "College Grad+"))
 nhis18_modelling$binned_RATCAT <- factor(nhis18_modelling$binned_RATCAT, 
-                                         levels = c("<100%", "100 - 200 %", "200 - 400 %", ">400%"))
+                                         levels = c("<100%", "100 - 200 %", 
+                                                    "200 - 400 %", ">400%"))
 nhis18_modelling$ORIENT_A <- factor(nhis18_modelling$ORIENT_A, 
-                                    levels = c("Straight", "Gay/Lesbian", "Bisexual", "Something else", "Don't know the answer"))
+                                    levels = c("Straight", "Gay/Lesbian", "Bisexual",
+                                               "Something else", "Don't know the answer"))
 nhis18_modelling$mental_health_problem <- factor(nhis18_modelling$mental_health_problem,
                                                  levels = c("No","Yes"))
 nhis18_modelling$HOUSEOWN <- factor(nhis18_modelling$HOUSEOWN)
 nhis18_modelling$FOOD_SECURITY <- factor(nhis18_modelling$FOOD_SECURITY, 
                                          levels = c("very low", "low", "high"))
 nhis18_modelling$INC_GRP <- factor(nhis18_modelling$INC_GRP, 
-                                   levels = c("$0-34,999", "$35,000 - 74,999", "$75,000 - 99,999", "$100,000 and over"))
+                                   levels = c("$0-34,999", "$35,000 - 74,999", 
+                                              "$75,000 - 99,999", "$100,000 and over"))
 nhis18_modelling$DEPEV_A <- factor(nhis18_modelling$DEPEV_A,
                                    levels = c("No", "Yes"))
 nhis18_modelling$ANXEV_A <- factor(nhis18_modelling$ANXEV_A,
@@ -62,20 +66,20 @@ nhis18_modelling$ANXEV_A <- factor(nhis18_modelling$ANXEV_A,
 ```
 
 ### Survey design using survey weights
-```{r}
+Survey weights was applied throughout the analysis as specified below following the recommendation from NHIS. Link to recommendation can be found [here](https://www.cdc.gov/nchs/nhis/nhis_2018_data_release.htm).
+
+```{r, echo = TRUE}
 
 nhis18_design <- svydesign(id = ~PPSU, strata = ~PSTRAT, nest = TRUE,
                            weights = ~WTFA_SA, data = nhis18_modelling)
 ```
 
+Total observations, variables collected are reported below.
 ```{r}
 str(nhis18_modelling)
 ```
-The table above shows smoking quit types without weights. "1" means the individual is a current smoker, "2" means that the individual quit smoking for only less than 6 months, "3" means the individual quit smoking from between 6 to 11 months", "4" means that the individual quit smoking for over a year. This variable would be used to create smaller data sets for regression purposes. 
 
-The second table applied weighting to the groups.
-
-### Years people quit smoking
+### $\text{\underline{Top Years People Quit Smoking}}$
 The table below shows the top 10 years that people in this data set quit smoking.
 ```{r}
 top_quit_years <- nhis18_modelling %>%
@@ -86,56 +90,60 @@ top_quit_years <- nhis18_modelling %>%
   filter(!is.na(`Year of Quit`))
 kable(head(top_quit_years, 10), caption="Top 10 years people quit smoking")
 ```
+\newpage
+### $\text{\underline{Summary of Study Sample by Subpopulation (smokers and quitters)}}$
+The function I created below summarizes the data by different sub-populations and reports the Frequency and percentage in a table.
+```{r}
 
-### Characteristics of study sample (smokers and quitters)
-```{r, message = FALSE, echo = FALSE}
+freq_table_function <- function(my_data, a_var, label){
+    summary_table <- my_data %>%
+    filter(!is.na({{a_var}}))%>%
+    group_by({{a_var}})%>%
+    summarize(Freq = n())%>%
+    mutate(`%` = round(Freq/sum(Freq) * 100, 1))
+    kable(summary_table, caption = label)
+}
 
-#freq_tablefunction <- function(my_data, var, label){
- #   my_data %>%
- #   filter(!is.na(my_data[var]))%>%
-#    group_by(my_data[var])%>%
-  #  summarize(Freq = n())%>%
- #   mutate(`%` = Freq/sum(Freq) * 100)
- #   kable(caption = label)
-#}
+freq_table_function(nhis18_modelling, EDUC1, "Education")
 
-#freq_table_function(nhis18_modelling, "EDUC1", "Education")
+freq_table_function(nhis18_modelling, SEX, "Gender")
 
-#freq_table_function(nhis18_modelling, "SEX", "Gender")
+freq_table_function(nhis18_modelling, REGION, "Region")
 
-#freq_table_function(nhis18_modelling, "REGION", "Region")
+freq_table_function(nhis18_modelling, binned_age, "By Age")
 
-#freq_table_function(nhis18_modelling, "binned_age", "By Age")
+freq_table_function(nhis18_modelling, RACERPI2, "Race Group")
 
-#freq_table_function(nhis18_modelling, "RACERPI2", "Race Group")
+freq_table_function(nhis18_modelling, binned_RATCAT, "Ratio of Income to FPL")
 
-#freq_table_function(nhis18_modelling, "binned_RATCAT", "Ratio of Income to FPL")
+freq_table_function(nhis18_modelling, ORIENT_A, "Sexual Orientation")
 
-#freq_table_function(nhis18_modelling, "ORIENT_A", "Sexual Orientation")
+freq_table_function(nhis18_modelling, mental_health_problem, "Mental Health Conditions")
 
-#freq_table_function(nhis18_modelling, "mental_health_problem", "Mental Health Conditions")
+freq_table_function(nhis18_modelling, HOUSEOWN, "House Ownweship")
 
-#freq_table_function(nhis18_modelling, "HOUSEOWN", "House Ownweship")
-
-#freq_table_function(nhis18_modelling, "FOOD_SECURITY", "Food Security")
+freq_table_function(nhis18_modelling, FOOD_SECURITY, "Food Security")
 ```
 
+\newpage
+## $\text{\underline{Creating datasets for each types of quit }}$
 
-## Creating datasets for each types of quit 
-### Data set for all quit and current smokers
+### *Data set for all quit and current smokers*
 
 ```{r}
 all_smoke_quit <- nhis18_modelling
 all_smoke_quit$QUIT_STATUS <- ifelse(all_smoke_quit$QUIT_TYPE == 1, 0, 1)
 
-#non_weighted totals
+#non_weighted frequency
 table(all_smoke_quit$QUIT_STATUS)
+
+#in percentage
 my_table = as.table(table(all_smoke_quit$QUIT_STATUS))
 round(prop.table(my_table) * 100, 2)
 ```
 
 
-### Data set for quit less than 6 months
+### *Data set for quit less than 6 months*
 
 ```{r}
 smoke_quit_less6months <- subset(nhis18_modelling, nhis18_modelling$QUIT_TYPE ==1| nhis18_modelling$QUIT_TYPE == 2)
@@ -145,12 +153,16 @@ smoke_quit_less6months$QUIT_STATUS <- ifelse(smoke_quit_less6months$QUIT_TYPE ==
 #creating survey design
 less6months_design  <- svydesign(id = ~PPSU, strata = ~PSTRAT, nest = TRUE,
                            weights = ~WTFA_SA, data = smoke_quit_less6months)
-#non_weighted totals
+#non_weighted frequency
 table(smoke_quit_less6months$QUIT_STATUS)
+
+#in percentage
+my_table = as.table(table(smoke_quit_less6months$QUIT_STATUS))
+round(prop.table(my_table) * 100, 2)
 ```
 
 
-### Data set for quit between 6 and 11 months
+### *Data set for quit between 6 and 11 months*
 
 ```{r}
 smoke_quit_6to11months <- subset(nhis18_modelling, nhis18_modelling$QUIT_TYPE ==1| nhis18_modelling$QUIT_TYPE == 3)
@@ -159,14 +171,16 @@ smoke_quit_6to11months$QUIT_STATUS <- ifelse(smoke_quit_6to11months$QUIT_TYPE ==
 #creating survey design
 sixto11quit_design  <- svydesign(id = ~PPSU, strata = ~PSTRAT, nest = TRUE,
                            weights = ~WTFA_SA, data = smoke_quit_6to11months)
-#non_weighted totals
+#non_weighted frequency
 table(smoke_quit_6to11months$QUIT_STATUS)
+
+#in percentage
 my_table = as.table(table(smoke_quit_6to11months$QUIT_STATUS))
 round(prop.table(my_table) * 100, 2)
 
 ```
 
-### data set for quit less than a year
+### *data set for quit less than a year*
 ```{r}
 smoke_quit_lessthanyear <- subset(nhis18_modelling, nhis18_modelling$QUIT_TYPE == 1|
                                     nhis18_modelling$QUIT_TYPE == 2|
@@ -177,14 +191,17 @@ smoke_quit_lessthanyear$QUIT_STATUS <- ifelse(smoke_quit_lessthanyear$QUIT_TYPE 
 #creating survey design
 lessthanyear_design <- svydesign(id = ~PPSU, strata = ~PSTRAT, nest = TRUE, 
                                  weights = ~WTFA_SA, data = smoke_quit_lessthanyear)
-#non_weighted_totals
+#non_weighted frequency
 table(smoke_quit_lessthanyear$QUIT_STATUS)
+
+#In percentage
 my_table = as.table(table(smoke_quit_lessthanyear$QUIT_STATUS))
 round(prop.table(my_table) * 100, 2)
 ```
 
 
-### data set for quit at least 6 months
+### *data set for quit at least 6 months*
+
 ```{r}
 quit_6month_and_over <- subset(nhis18_modelling, nhis18_modelling$QUIT_TYPE == 1|
                                  nhis18_modelling$QUIT_TYPE == 3|
@@ -196,13 +213,15 @@ quit_6month_and_over_design <- svydesign(id = ~PPSU, strata = ~PSTRAT, nest = TR
                                          weights = ~WTFA_SA, 
                                          data = quit_6month_and_over)
 
-#non_weighted totals
+#non_weighted frequency
 table(quit_6month_and_over$QUIT_STATUS)
+
+#in percentage
 my_table = as.table(table(quit_6month_and_over$QUIT_STATUS))
 round(prop.table(my_table) * 100, 2)
 ```
 
-### data set for quit at least a year
+### *data set for quit at least a year*
 ```{r}
 smoke_quit_yearandover <- subset(nhis18_modelling, nhis18_modelling$QUIT_TYPE ==1| nhis18_modelling$QUIT_TYPE == 4)
 
@@ -211,15 +230,17 @@ smoke_quit_yearandover$QUIT_STATUS <- ifelse(smoke_quit_yearandover$QUIT_TYPE ==
 #creating survey design
 yearandover_design <- svydesign(id = ~PPSU, strata = ~PSTRAT, nest = TRUE,
                            weights = ~WTFA_SA, data = smoke_quit_yearandover)
-#non_weighted totals
+#non_weighted frequency
 table(smoke_quit_yearandover$QUIT_STATUS)
+
+#in percentage
 my_table = as.table(table(smoke_quit_yearandover$QUIT_STATUS))
 round(prop.table(my_table) * 100, 2)
 ```
 
 
 
-### data set for attempt to quit smoking
+### *data set for attempt to quit smoking*
 Note that the CIGQTYR variable records people that attempt to quit smoking within the last 12 months.
 We are subsetting for only current smokers. 
 ```{r}
@@ -228,17 +249,22 @@ attempt_to_quit <- subset(nhis18_modelling, nhis18_modelling$QUIT_TYPE == 1)
 #creating survey design
 attempt_to_quit_design <- svydesign(id = ~PPSU, strata = ~PSTRAT, nest = TRUE, 
                                  weights = ~WTFA_SA, data = attempt_to_quit)
-# non_weighted_totals
+# non_weighted frequency
 table(attempt_to_quit$CIGQTYR)
+
+#in percentage
 my_table = as.table(table(attempt_to_quit$CIGQTYR))
 round(prop.table(my_table) * 100, 2)
 ```
-## Regression Analysis
+
+\newpage
+## $\text{\underline{REGRESSION ANALYSIS}}$
 
 
-### Creating a function that calculates unadjusted and adjusted Quit rates
-The function I defined below calculates un-adjusted rates using the original data and uses the regression results to predict the quit probability for each observation in the data set. The quit probability is summarized across different sub-populations and reported with the un-adjusted rate in a table as a percentage. 
-```{r}
+### *Creating a function that calculates un-adjusted and adjusted Quit rates*
+
+The function I defined below calculates un-adjusted rates using the original data and uses the regression results to predict the quit probability for each observation in the data set. The quit probability is summarized across different sub-populations and reported with the un-adjusted rate in a table as a percentage. See code chunk below for function. I implemented this function for each regression analysis to show the table for adjusted and un-adjusted quit/attempt to quit probabilities.  
+```{r, echo=TRUE}
 readjust_function <- function(dframe1, dframe2, a_var, label){
   dframe1$QUIT_STATUS <- as.character(dframe1$QUIT_STATUS)
   dframe1 <- dframe1 %>%
@@ -261,8 +287,11 @@ readjust_function <- function(dframe1, dframe2, a_var, label){
 }
 ```
 
-In the regression modeling, I did not account for possible interaction among the variables. The original coefficients results for are reported as log odd-ratio. I converted the log odd-ratio to odd ratio by taking the exponents. I also reported a 95 percent confidence interval for each of the odds ratio. I also reported the un-adjusted and adjusted quit rates using the function created earlier across different sub-populations.  
-## Quit Smoking less than a Year
+In the regression modeling, I did not account for possible interaction among the variables. The original coefficients results for are reported as log odd-ratio. I converted the log odd-ratio to odd ratio by taking the exponents. I also reported a 95 percent confidence interval for each of the odds ratio. I also reported the un-adjusted and adjusted quit rates using the function created earlier across different sub-populations.
+
+\newpage
+### $\text{\underline{QUIT SMOKING FOR LESS THAN A YEAR}}$
+
 ```{r}
 # Quit smoke for less than a year
 vars <- c("binned_age", "SEX", "EDUC1", "binned_RATCAT", "ORIENT_A", "mental_health_problem",
@@ -311,7 +340,7 @@ predicted_quit <- reg1_quit_lessthanyear %>%
 
 ```
 
-### Unadjusted and Adjusted Quit Rate for Quit smoking less than a year
+### *Unadjusted and Adjusted Quit Rate for Quit smoking less than a year*
 ```{r}
 readjust_function(smoke_quit_lessthanyear, predicted_quit, REGION)
 readjust_function(smoke_quit_lessthanyear, predicted_quit, binned_age)
@@ -324,8 +353,8 @@ readjust_function(smoke_quit_lessthanyear, predicted_quit, HOUSEOWN)
 readjust_function(smoke_quit_lessthanyear, predicted_quit, INC_GRP)
 readjust_function(smoke_quit_lessthanyear, predicted_quit, FOOD_SECURITY)
 ```
-
-### Quit smoking for at least 6 months
+\newpage
+### $\text{\underline{QUIT SMOKING FOR AT LEAST 6 MONTHS}}$
 ```{r}
 
 reg2_quit_6month_and_over <- quit_6month_and_over %>%
@@ -353,7 +382,7 @@ predicted_quit_least_6months <- reg2_quit_6month_and_over %>%
 ```
 
 
-### Unadjusted and Adjusted Quit Rate for Quit smoking at least 6 months
+### *Unadjusted and Adjusted Quit Rate for Quit smoking at least 6 months*
 ```{r}
 readjust_function(quit_6month_and_over, predicted_quit_least_6months, REGION)
 readjust_function(quit_6month_and_over, predicted_quit_least_6months, binned_age)
@@ -367,8 +396,8 @@ readjust_function(quit_6month_and_over, predicted_quit_least_6months, INC_GRP)
 readjust_function(quit_6month_and_over, predicted_quit_least_6months, FOOD_SECURITY)
 ```
 
-
-### Quit smoking for at least year and over
+\newpage
+### $\text{\underline{QUIT SMOKING FOR AT LEAST A YEAR}}$
 ```{r}
 reg3_quit_yearandover <- smoke_quit_yearandover %>%
                           drop_na(REGION, any_of(vars))
@@ -396,7 +425,7 @@ predicted_quit_yearandover <- reg3_quit_yearandover %>%
 ```
 
 
-### Unadjusted and Adjusted Quit Rate for Quit smoking at least a year
+### *Unadjusted and Adjusted Quit Rate for Quit smoking at least a year*
 ```{r}
 readjust_function(smoke_quit_yearandover, predicted_quit_yearandover, REGION)
 readjust_function(smoke_quit_yearandover, predicted_quit_yearandover, binned_age)
@@ -411,8 +440,8 @@ readjust_function(smoke_quit_yearandover, predicted_quit_yearandover, FOOD_SECUR
 ```
 
 
-
-### attempt to quit smoking 
+\newpage
+### $\text{\underline{ATTEMPTS TO QUIT SMOKING}}$
 ```{r}
 reg4_attempt_to_quit <- attempt_to_quit %>%
                           drop_na(REGION, any_of(vars))
@@ -439,7 +468,7 @@ predicted_attempt_to_quit <- reg4_attempt_to_quit %>%
 ```
 
 
-### Unadjusted and Adjusted Attempt to Quit
+### *Unadjusted and Adjusted Attempt to Quit*
 ```{r}
 #rewriting readjust function for attempt to quit
 attempt_readjust_function <- function(dframe1, dframe2, a_var, label){
