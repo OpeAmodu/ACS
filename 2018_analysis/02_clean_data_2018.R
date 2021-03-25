@@ -13,6 +13,19 @@ nhis18$REGION <- ifelse(nhis18$REGION ==1, "Northeast",
                                ifelse(nhis18$REGION == 3, "South",
                                       ifelse(nhis18$REGION == 4, "West", NA))))
 
+is.na(nhis18$COVER) <- 99
+is.na(nhis18$COVER65O) <- 99
+
+
+nhis18$COVERAGE <- ifelse(nhis18$AGE_P<65 & nhis18$COVER==1| nhis18$AGE_P>64 & nhis18$COVER65O==1, "Private",
+                          ifelse(nhis18$AGE_P<65 & nhis18$COVER == 2|nhis18$AGE_P>64 & nhis18$COVER65O == 2, "Medicaid (includes people with Medicare and Medicaid)",
+                                        ifelse(nhis18$AGE_P>64 & nhis18$COVER65O == 3, "Medicare Only",
+                                               ifelse(nhis18$AGE_P<65 & nhis18$COVER==3| nhis18$AGE_P>64 & nhis18$COVER65O==4, "Other Coverage",
+                                                      ifelse(nhis18$AGE_P<65 & nhis18$COVER==4| nhis18$AGE_P>64 & nhis18$COVER65O==5, "Uninsured", 
+                                                             NA)))))
+nhis18$COVER <- NA
+nhis18$COVER65O <- NA
+
 #formatting the age variable
 nhis18$binned_age <- cut(nhis18$AGE_P, c(18, 24, 44, 64, Inf),
                          labels = c("18-24", "25-44", "45-64", "65+"), include.lowest = TRUE)
@@ -28,7 +41,6 @@ nhis18$RACERPI2 <- ifelse(nhis18$RACERPI2 == 01,  "white",
                                  ifelse(nhis18$RACERPI2 == 03, "AIAN",
                                        ifelse(nhis18$RACERPI2 == 04,  "Asian",
                                               ifelse(nhis18$RACERPI2 == 06, "Multiple", NA)))))
-table(nhis18$RACERPI2)
                           
 
 #formatting the education variable
@@ -173,6 +185,7 @@ nhis18$cig_pipe <- ifelse(nhis18$SMKCIGST_A == "Yes" & nhis18$PIPEST_A == "Yes",
 # formatting the cigarette and smokeless tobacco dual use variable
 nhis18$cig_smkles <- ifelse(nhis18$SMKCIGST_A == "Yes" & nhis18$SMOKELSST_A == "Yes", "Yes", "No")
 
-
+table(nhis18$COVERAGE)
 # creating a csv file for the cleaned data
 write_csv(nhis18, "final_data_2018_clean.csv")
+

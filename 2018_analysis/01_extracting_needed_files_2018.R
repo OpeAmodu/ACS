@@ -34,7 +34,7 @@ adult2018_lite <- adult2018 %>%
 
 #extracting needed variables from family 2018
 person2018_lite <- person2018 %>%
-    select(SRVY_YR, HHX, FMX, FPX, EDUC1)
+    select(SRVY_YR, HHX, FMX, FPX, EDUC1, COVER, COVER65O)
 
 
 first_join <- merge(household2018_lite, family2018_lite, by =c("SRVY_YR", "HHX"))
@@ -53,6 +53,7 @@ final_data_2018 <- final_join %>%
         FSRUNOUT, FSLAST, FSBALANC, FSSKIP, FSSKDAYS, FSLESS, FSHUNGRY, FSWEIGHT, FSNOTEAT, FSNEDAYS,
         AWORPAY,
         COG_SS, COGCAUS2, ANX_1, DEP_1,
+        COVER, COVER65O,
         SMKEV, SMKREG, SMKNOW, SMKSTAT2, SMKQTNO, SMKQTTP, SMKQTY, CIGSDA1, CIGDAMO, CIGSDA2, CIGQTYR, 
         ECIGEV2, ECIGCUR2, ECIG30D2, CIGAREV2, CIGCUR2, CIG30D2, 
         PIPEV2, PIPECUR2, SMKLSTB1, SMKLSCR2)
@@ -65,7 +66,8 @@ str(final_data_2018)
 #Writing final data set as a CSV file
 write_csv(final_data_2018, "final_data_2018.csv")
 
-
+nrow(final_data_2018)
+ncol(final_data_2018)
 
 
 

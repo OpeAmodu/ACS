@@ -9,30 +9,46 @@ nhis18_modelling <- read.csv("../2018_analysis/final_data_2018_clean.csv")
 #extracting variables needed for regression modelling
 nhis18_modelling <- filter(nhis18_modelling, SMKSTAT2 <= 3)
 nhis18_modelling <- nhis18_modelling %>%
-  select(HHX, PPSU, PSTRAT, WTFA_SA, YEAR = SRVY_YR, MONTH = INTV_MON, DAY = DAY, REGION, binned_age, SEX, RACERPI2, EDUC1, binned_RATCAT,
-         ORIENT_A,DEPEV_A, ANXEV_A ,mental_health_problem, HOUSEOWN, INCGRP5, FM_SIZE, FOOD_SECURITY, CIGQTYR, SMKSTAT2,
+  select(HHX, PPSU, PSTRAT, WTFA_SA, YEAR = SRVY_YR, MONTH = INTV_MON, DAY = DAY,
+         REGION, AGE=binned_age, SEX, RACE=RACERPI2,
+         EDUCATION=EDUC1, `INCOME RATIO TO FPL`=binned_RATCAT, `SEXUAL ORIENTATION`=ORIENT_A,
+         DEPEV_A, ANXEV_A, `MENTAL HEALTH PROBLEM`=mental_health_problem, HOUSEOWN,
+         `INCOME GROUP`=INCGRP5,
+         COVERAGE,
+         FM_SIZE, 
+         `FOOD SECURITY`=FOOD_SECURITY, CIGQTYR, SMKSTAT2,
          SMKQTNO, SMKQTTP, SMKQTY)
 
-#formatting the variable for income per capita
-if(nhis18_modelling$INCGRP5 == 96| nhis18_modelling$INCGRP5 == 99){
-  nhis18_modelling$inc_per_capita <- NA
-}else if(nhis18_modelling$INCGRP5 == 1){
-  nhis18_modelling$inc_per_capita <- (0 + 34999)/nhis18_modelling$FM_SIZE
-}else if(nhis18_modelling$INCGRP5 == 2){
-  nhis18_modelling$inc_per_capita <- (35000 + 74999)/nhis18_modelling$FM_SIZE
-}else if(nhis18_modelling$INCGRP5 == 3){
-  nhis18_modelling$inc_per_capita <- (75000 + 99999)/nhis18_modelling$FM_SIZE
-}else{
-  nhis18_modelling$inc_per_capita <- (100000 + 125000)/nhis18_modelling$FM_SIZE
-}
+#formatting the Race variable
+nhis18_modelling$RACE <- ifelse(nhis18_modelling$RACE == "white",  "White",
+                          ifelse(nhis18_modelling$RACE == "Black/African American", "Black/African American",
+                                 ifelse(nhis18_modelling$RACE == "AIAN"|
+                                          nhis18_modelling$RACE == "Asian"|
+                                          nhis18_modelling$RACE == "Multiple", "Other", NA)))
 
 #formatting the family income variable
-nhis18_modelling$INC_GRP <- ifelse(nhis18_modelling$INCGRP5 == 01, "$0-34,999",
-                         ifelse(nhis18_modelling$INCGRP5 == 02, "$35,000 - 74,999",
-                                ifelse(nhis18_modelling$INCGRP5 == 03, "$75,000 - 99,999",
-                                       ifelse(nhis18_modelling$INCGRP5 == 04, "$100,000 and over",
+nhis18_modelling$`INCOME GROUP` <- ifelse(nhis18_modelling$`INCOME GROUP` == 01, "$0-34,999",
+                         ifelse(nhis18_modelling$`INCOME GROUP` == 02, "$35,000 - 74,999",
+                                ifelse(nhis18_modelling$`INCOME GROUP` == 03, "$75,000 - 99,999",
+                                       ifelse(nhis18_modelling$`INCOME GROUP` == 04, "$100,000 and over",
                                               NA))))
 
+#formatting the sexual orientation variable
+nhis18_modelling$`SEXUAL ORIENTATION` <-  ifelse(nhis18_modelling$`SEXUAL ORIENTATION` == "Straight", "Straight",
+                                                  ifelse(nhis18_modelling$`SEXUAL ORIENTATION` == "Bisexual"|
+                                                          nhis18_modelling$`SEXUAL ORIENTATION` == "Something else"|
+                                                          nhis18_modelling$`SEXUAL ORIENTATION` == "Don't know the answer"|
+                                                          nhis18_modelling$`SEXUAL ORIENTATION` == "Gay/Lesbian",
+                                                              "Other", NA)) 
+#formatting the food security variable
+nhis18_modelling$`FOOD SECURITY` <- ifelse(nhis18_modelling$`FOOD SECURITY` == "high", "High",
+                                 ifelse(nhis18_modelling$`FOOD SECURITY` == "low"|
+                                          nhis18_modelling$`FOOD SECURITY` == "very low",
+                                 "Low", NA))
+
+
+
+                                                            
 
 #assigning date of interview variable
 nhis18_modelling$DATE_INTERVIEW <- as.character(make_date(nhis18_modelling$YEAR, 
@@ -63,8 +79,8 @@ nhis18_modelling$QUIT_MONTHS <- floor(nhis18_modelling$QUIT_DAY/30)
 
 nhis18_modelling$QUIT_TYPE <- ifelse(nhis18_modelling$SMKSTAT2 == 1| nhis18_modelling$SMKSTAT2 == 2, 1,
                                          ifelse(nhis18_modelling$QUIT_MONTHS < 6, 2,
-                                                ifelse(nhis18_modelling$QUIT_MONTHS >= 6 & nhis18_modelling$QUIT_MONTHS < 12, 3, 
-                                                       ifelse(nhis18_modelling$QUIT_MONTHS >=12, 4, ""))))
+                                                ifelse(nhis18_modelling$QUIT_MONTHS >= 6 & nhis18_modelling$QUIT_MONTHS <= 12, 3, 
+                                                       ifelse(nhis18_modelling$QUIT_MONTHS >12, 4, ""))))
 
 #creating variable for date since quit smoking
 nhis18_modelling$DATE_QUIT_SMOKING <- as.character(ymd(nhis18_modelling$DATE_INTERVIEW) - months(nhis18_modelling$QUIT_MONTHS))
@@ -77,6 +93,5 @@ nhis18_modelling$QUIT_SMOKING_YEAR <- year(ymd(nhis18_modelling$DATE_QUIT_SMOKIN
 # 2 means did not attempt to quit smoking in the past year
 nhis18_modelling$CIGQTYR <- ifelse(nhis18_modelling$CIGQTYR == 1, 1,
                                    ifelse(nhis18_modelling$CIGQTYR == 2, 0, NA))
-
-write.csv(nhis18_modelling, "nhis18_modelling.csv")
-
+nhis18_modelling <- subset(nhis18_modelling, nhis18_modelling$AGE != "18-24")
+write_csv(nhis18_modelling, "nhis18_modelling.csv")
