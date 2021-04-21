@@ -22,5 +22,3 @@ final_data_2019 <- nhis2019 %>%
 
 write_csv(final_data_2019, "final_data_2019.csv")
 
-nrow(final_data_2019)
-ncol(final_data_2019)

@@ -61,13 +61,11 @@ final_data_2018 <- final_join %>%
 final_data_2018 <- final_data_2018 %>%
     filter(AGE_P >= 18)
 
-str(final_data_2018)
 
 #Writing final data set as a CSV file
 write_csv(final_data_2018, "final_data_2018.csv")
 
-nrow(final_data_2018)
-ncol(final_data_2018)
+
 
 
 

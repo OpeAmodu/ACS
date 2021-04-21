@@ -6,7 +6,7 @@ output: pdf_document
 ---
 
 ```{r setup, include=FALSE, warning = FALSE}
-knitr::opts_chunk$set(echo = FALSE, cache = TRUE, warning = FALSE)
+knitr::opts_chunk$set(echo = FALSE, cache = FALSE, warning = FALSE, mesage=FALSE)
 library(tidyverse)
 library(gridExtra)
 library(survey)
@@ -17,14 +17,14 @@ library(knitr)
 To produce this report, The "tidyverse", "survey", "gridExtra", "knitr" packages should be installed. Please run the following code in R or Rstudio;
 
 ```{r, echo = TRUE, warning = FALSE, results = "hide", message = FALSE}
-# installed_pkgs <- row.names(installed.packages())
-# pkgs <- c("dplyr", "gridExtra", "survey", "knitr")
+installed_pkgs <- row.names(installed.packages())
+pkgs <- c("dplyr", "gridExtra", "survey", "knitr")
 
-# for(p in pkgs){
-#  if(!(p %in% installed_pkgs)){
-#    install.packages(p, repos = "http://cran.us.r-project.org")
-# }
-# }
+for(p in pkgs){
+if(!(p %in% installed_pkgs)){
+install.packages(p, repos = "http://cran.us.r-project.org")
+ }
+ }
 ```
 
 ```{r}
@@ -41,15 +41,139 @@ nhis19_design <- svydesign(id=~PPSU, strata= ~PSTRAT, nest = TRUE,
 summary(nhis19_design)
 ```
 
-# Exploratory Data Analysis
+# Descriptive Statistics
 
+<!--
+The prev_tab_function below calculates total prevalence by type of product in percentage
+- the object is the object is the object created using the survey design
+- the col_name is the type of smoke product 
+_ label is the name to give the type of product eg. Cigarette, Smokeless Tobacco etc.
+- I use the function for each type of product and then binded the table to form one big table
+-->
 
-## Smoking By Age and Sex
+```{r}
+prev_tab_function <- function(object, col_name, label){
+  df <- object %>%
+  as.data.frame()%>%
+  spread({{col_name}}, Freq)%>%
+  mutate(`Prevalence (%)` = round((Yes/(Yes + No))*100, 1))
+  
+  df$`Type of Product` <- label
+  
+  df <- df %>%
+    select(`Type of Product`, `Prevalence (%)`)
+  
+  df
+}
+
+```
+
+## General Cigarette Smoking
 ```{r}
 cig_smoking <- svytable(~SMKCIGST_A,
                    design = nhis19_design)
 
-#cigarette smoking by age and sex
+ecig_smoking <- svytable(~SMKECIGST_A, 
+                   design = nhis19_design)
+
+cigar_smoking <- svytable(~CIGARST_A, 
+                   design = nhis19_design)
+
+pipe_smoking<- svytable(~PIPEST_A,
+                        design = nhis19_design)
+
+smkles_smoking <- svytable(~SMOKELSST_A,
+                          design =nhis19_design)
+cig_use <- prev_tab_function(cig_smoking, SMKCIGST_A, "Cigarette")
+ecig_use <- prev_tab_function(ecig_smoking, SMKECIGST_A, "Smokeless Tobacco")
+cigar_use <- prev_tab_function(cigar_smoking, CIGARST_A, "Cigar")
+pipe_use <- prev_tab_function(pipe_smoking, PIPEST_A, "Pipe")
+smkles_use <- prev_tab_function(smkles_smoking, SMOKELSST_A, "Smokeless tobacco")
+
+general_use <- bind_rows(cig_use, ecig_use, cigar_use, pipe_use, smkles_use)
+kable(general_use, caption = "Smoking Prevalence in the United States")
+```
+
+<!--
+the df_function calculates smoking prevalence by type of product and socio-economic/socio-demographic variable 
+of interest. For example Smokeless tobacco by age or Cigarette by sex
+- object is the object created using the survey design
+- col_name_1 represents the Socio-economic/socio-demographic variable of interest
+- col_name_2 represents the type of smoking product
+-->
+```{r, function for dataframes}
+df_function <- function(object, col_name_1, col_name_2){
+  df <- object %>% 
+    as.data.frame()%>%
+    group_by({{col_name_1}})%>%
+    gather({{col_name_2}}, key = "Type of Product", value = "Smoking Status")%>%
+    spread(`Smoking Status`, Freq)%>%
+    mutate(`Prevalence (%)` = round((Yes/(Yes + No))*100, 1))%>%
+    select(`-`={{col_name_1}}, `Type of Product`, `Prevalence (%)`)
+  
+  df$`Type of Product` <- ifelse(df$`Type of Product` == "SMKCIGST_A", "Cigarette", 
+                                 ifelse(df$`Type of Product` == "SMKECIGST_A", "E-cigarette",
+                                        ifelse(df$`Type of Product` == "CIGARST_A", "Cigar",
+                                               ifelse(df$`Type of Product` == "PIPEST_A", "Pipe",
+                                                      ifelse(df$`Type of Product` == "SMOKELSST_A", "Smokeless tobacco", "")))))
+  
+  
+  df
+}
+
+```
+
+\newpage
+## Smoking by Age
+```{r}
+#cigarette smoking objects by age 
+cig_by_age <- svytable(~SMKCIGST_A + binned_age,
+                   design = nhis19_design)
+
+
+
+ecig_by_age <- svytable(~SMKECIGST_A + binned_age,
+                        design = nhis19_design)
+
+
+cigar_by_age <- svytable(~CIGARST_A + binned_age,
+                         design = nhis19_design)
+
+
+pipe_by_age <- svytable(~PIPEST_A + binned_age,
+                        design = nhis19_design)
+
+
+smkles_by_age <- svytable(~SMOKELSST_A + binned_age,
+                          design =nhis19_design)
+```
+
+
+```{r}
+#Cigarette by age
+cig_by_ageDF <- df_function(cig_by_age, binned_age, SMKCIGST_A)
+
+#e-cigarette by age
+ecig_by_ageDF <- df_function(ecig_by_age, binned_age, SMKECIGST_A)
+
+#cigar by age
+cigar_by_ageDF <- df_function(cigar_by_age, binned_age, CIGARST_A)
+
+# pipe smoke by age
+pipe_by_ageDF <- df_function(pipe_by_age, binned_age, PIPEST_A)
+
+# smokeless tobacco by age
+smkles_by_ageDF <- df_function(smkles_by_age, binned_age, SMOKELSST_A)
+
+# Combining all into one table 
+smoking_by_age <- bind_rows(cig_by_ageDF, ecig_by_ageDF, cigar_by_ageDF, pipe_by_ageDF, smkles_by_ageDF)
+kable(smoking_by_age, caption = "Table Showing Prevalence of Smoking by Age and Type of Product")
+
+```
+
+## Smoking Prevalence by Gender
+```{r}
+#cigarette smoking objects by sex
 cig_by_sex <- svytable(~SMKCIGST_A + SEX_A ,
                    design = nhis19_design)
 
@@ -64,131 +188,27 @@ pipe_by_sex <- svytable(~PIPEST_A + SEX_A,
 
 smkles_by_sex <- svytable(~SMOKELSST_A + SEX_A,
                           design =nhis19_design)
-
-cig_by_age <- svytable(~SMKCIGST_A + binned_age,
-                   design = nhis19_design)
-
-
-
-ecig_by_age <- svytable(~SMKECIGST_A + binned_age,
-                        design = nhis19_design)
-
-
-
-cigar_by_age <- svytable(~CIGARST_A + binned_age,
-                         design = nhis19_design)
-
-
-
-pipe_by_age <- svytable(~PIPEST_A + binned_age,
-                        design = nhis19_design)
-
-
-smkles_by_age <- svytable(~SMOKELSST_A + binned_age,
-                          design =nhis19_design)
 ```
 
-## Smoking by Age
-
 ```{r}
-#
-cig_by_ageDF <- cig_by_age %>% 
-  as.data.frame()%>%
-  group_by(binned_age)%>%
-  gather(`SMKCIGST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)%>%
-  mutate(Prevalence = (Yes/(Yes + No))*100)
-cig_by_ageDF$`Type of Smoke` <- ifelse(cig_by_ageDF$`Type of Smoke` == "SMKCIGST_A", "Cigarette")
+#cigarette
+cig_by_sexDF <- df_function(cig_by_sex, SEX_A, SMKCIGST_A)
 
-#
-ecig_by_ageDF <- ecig_by_age %>% 
-  as.data.frame()%>%
-  group_by(binned_age)%>%
-  gather(`SMKECIGST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)%>%
-  mutate(Prevalence = (Yes/(Yes + No))*100)
-ecig_by_ageDF$`Type of Smoke` <- ifelse(ecig_by_ageDF$`Type of Smoke` == "SMKECIGST_A", "E-cigarette", "")
+#e-cigarette
+ecig_by_sexDF <- df_function(ecig_by_sex, SEX_A, SMKECIGST_A)
 
+#cigar
+cigar_by_sexDF <- df_function(cigar_by_sex, SEX_A, CIGARST_A)
 
-#
-cigar_by_ageDF <- cigar_by_age %>% 
-  as.data.frame()%>%
-  group_by(binned_age)%>%
-  gather(`CIGARST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)%>%
-  mutate(Prevalence = (Yes/(Yes + No))*100)
-cigar_by_ageDF$`Type of Smoke` <- ifelse(cigar_by_ageDF$`Type of Smoke` == "CIGARST_A", "Cigar", "")
-#
-pipe_by_ageDF <- pipe_by_age %>% 
-  as.data.frame()%>%
-  group_by(binned_age)%>%
-  gather(`PIPEST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)%>%
-  mutate(Prevalence = (Yes/(Yes + No))*100)
-pipe_by_ageDF$`Type of Smoke` <- ifelse(pipe_by_ageDF$`Type of Smoke` == "PIPEST_A", "Pipe", "")
-#
-smkles_by_ageDF <- smkles_by_age %>% 
-  as.data.frame()%>%
-  group_by(binned_age)%>%
-  gather(`SMOKELSST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)%>%
-  mutate(Prevalence = (Yes/(Yes + No))*100)
-smkles_by_ageDF$`Type of Smoke` <- ifelse(smkles_by_ageDF$`Type of Smoke` == "SMOKELSST_A", "Smokeless Tobacco", "")
+#pipe
+pipe_by_sexDF <- df_function(pipe_by_sex, SEX_A, PIPEST_A)
 
-smoking_by_age <- bind_rows(cig_by_ageDF, ecig_by_ageDF, cigar_by_ageDF, pipe_by_ageDF, smkles_by_ageDF)
-kable(smoking_by_age, caption = "Table Showing the Frequency of Smoking by Age and Type of Product")
+#smokeless tobacco
+smkles_by_sexDF <- df_function(smkles_by_sex, SEX_A, SMOKELSST_A)
 
-```
-
-## Smoking by Sex
-
-```{r}
-cig_by_sexDF <- cig_by_sex %>% 
-  as.data.frame()%>%
-  group_by(SEX_A)%>%
-  gather(`SMKCIGST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)%>%
-  mutate(Prevalence = (Yes/(Yes + No))*100)
-cig_by_sexDF$`Type of Smoke` <- ifelse(cig_by_sexDF$`Type of Smoke` == "SMKCIGST_A", "Cigarette", "")
-
-#
-ecig_by_sexDF <- ecig_by_sex %>% 
-  as.data.frame()%>%
- group_by(SEX_A)%>%
-  gather(`SMKECIGST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)%>%
-  mutate(Prevalence = (Yes/(Yes + No))*100)
-ecig_by_sexDF$`Type of Smoke` <- ifelse(ecig_by_sexDF$`Type of Smoke` == "SMKECIGST_A", "E-cigarette", "")
-
-#
-cigar_by_sexDF <- cigar_by_sex %>% 
-  as.data.frame()%>%
-  group_by(SEX_A)%>%
-  gather(`CIGARST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)%>%
-  mutate(Prevalence = (Yes/(Yes + No))*100)
-cigar_by_sexDF$`Type of Smoke` <- ifelse(cigar_by_sexDF$`Type of Smoke` == "CIGARST_A", "Cigar", "")
-#
-pipe_by_sexDF <- pipe_by_sex %>% 
-  as.data.frame()%>%
-  group_by(SEX_A)%>%
-  gather(`PIPEST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)%>%
-  mutate(Prevalence = (Yes/(Yes + No))*100)
-pipe_by_sexDF$`Type of Smoke` <- ifelse(pipe_by_sexDF$`Type of Smoke` == "PIPEST_A", "Pipe", "")
-#
-smkles_by_sexDF <- smkles_by_sex %>% 
-  as.data.frame()%>%
-  group_by(SEX_A)%>%
-  gather(`SMOKELSST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)%>%
-  mutate(Prevalence = (Yes/(Yes + No))*100)
-smkles_by_sexDF$`Type of Smoke` <- ifelse(smkles_by_sexDF$`Type of Smoke` == "SMOKELSST_A", "Smokeless Tobacco", "")
-
+#Combining all into one table 
 smoking_by_sex <- bind_rows(cig_by_sexDF, ecig_by_sexDF, cigar_by_sexDF, pipe_by_sexDF, smkles_by_sexDF)
-kable(smoking_by_sex, caption = "Table Showing the Frequency of Smoking by Sex and Type of Product")
-
-
+kable(smoking_by_sex, caption = "Table Showing Prevalence of Smoking by Sex and Type of Product")
 ```
 
 
@@ -215,47 +235,34 @@ smkles_by_race <- svytable(~RACEALLP_A+SMOKELSST_A,
 ```
 
 ```{r}
-cig_by_raceDF <- cig_by_race %>% 
-  as.data.frame()%>%
-  group_by(RACEALLP_A)%>%
-  gather(`SMKCIGST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)%>%
-  mutate(Prevalence = (Yes/(Yes + No))*100)
-cig_by_raceDF$`Type of Smoke` <- ifelse(cig_by_raceDF$`Type of Smoke` == "SMKCIGST_A", "Cigarette", "")
+#cigarette
+cig_by_raceDF <- df_function(cig_by_race, RACEALLP_A, SMKCIGST_A)
+# cig_by_raceDF <- cig_by_race %>% 
+#   as.data.frame()%>%
+#   group_by(RACEALLP_A)%>%
+#   gather(`SMKCIGST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
+#   spread(`Smoking Status`, Freq)%>%
+#   mutate(Prevalence = (Yes/(Yes + No))*100)
+# cig_by_raceDF$`Type of Smoke` <- ifelse(cig_by_raceDF$`Type of Smoke` == "SMKCIGST_A", "Cigarette", "")
 
-#
-ecig_by_raceDF <- ecig_by_race %>% 
-  as.data.frame()%>%
-  group_by(RACEALLP_A)%>%
-  gather(`SMKECIGST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)%>%
-  mutate(Prevalence = (Yes/(Yes + No))*100)
-ecig_by_raceDF$`Type of Smoke` <- ifelse(ecig_by_raceDF$`Type of Smoke` == "SMKECIGST_A", "E-Cigarette", "")
+#ecigarette
+ecig_by_raceDF <- df_function(ecig_by_race, RACEALLP_A, SMKECIGST_A)
+# ecig_by_raceDF <- ecig_by_race %>% 
+#   as.data.frame()%>%
+#   group_by(RACEALLP_A)%>%
+#   gather(`SMKECIGST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
+#   spread(`Smoking Status`, Freq)%>%
+#   mutate(Prevalence = (Yes/(Yes + No))*100)
+# ecig_by_raceDF$`Type of Smoke` <- ifelse(ecig_by_raceDF$`Type of Smoke` == "SMKECIGST_A", "E-Cigarette", "")
 
-#
-cigar_by_raceDF <- cigar_by_race %>% 
-  as.data.frame()%>%
-  group_by(RACEALLP_A)%>%
-  gather(`CIGARST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)%>%
-  mutate(Prevalence = (Yes/(Yes + No))*100)
-cigar_by_raceDF$`Type of Smoke` <- ifelse(cigar_by_raceDF$`Type of Smoke` == "CIGARST_A", "Cigar", "")
-#
-pipe_by_raceDF <- pipe_by_race %>% 
-  as.data.frame()%>%
-  group_by(RACEALLP_A)%>%
-  gather(`PIPEST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)%>%
-  mutate(Prevalence = (Yes/(Yes + No))*100)
-pipe_by_raceDF$`Type of Smoke` <- ifelse(pipe_by_raceDF$`Type of Smoke` == "PIPEST_A", "Pipe", "")
-#
-smkles_by_raceDF <- smkles_by_race %>% 
-  as.data.frame()%>%
-  group_by(RACEALLP_A)%>%
-  gather(`SMOKELSST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)%>%
-  mutate(Prevalence = (Yes/(Yes + No))*100)
-smkles_by_raceDF$`Type of Smoke` <- ifelse(smkles_by_raceDF$`Type of Smoke` == "SMOKELSST_A", "Smokeless Tobacco", "")
+#cigar
+cigar_by_raceDF <- df_function(cigar_by_race, RACEALLP_A, CIGARST_A)
+
+#pipe
+pipe_by_raceDF <- df_function(pipe_by_race, RACEALLP_A, PIPEST_A)
+
+#smokeless tobacco
+smkles_by_raceDF <- df_function(smkles_by_race, RACEALLP_A, SMOKELSST_A)
 
 smoking_by_race <- rbind(cig_by_raceDF, ecig_by_raceDF, cigar_by_raceDF, pipe_by_raceDF, smkles_by_raceDF)
 kable(smoking_by_race, caption ="Smoking Prevalence by Race and type of Smoke")
@@ -288,47 +295,20 @@ smkles_by_education <- svytable(~binned_EDUC+SMOKELSST_A,
 ```
 
 ```{r}
-cig_by_educDF <- cig_by_education %>% 
-  as.data.frame()%>%
-  group_by(binned_EDUC)%>%
-  gather(`SMKCIGST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)%>%
-  mutate(Prevalence = (Yes/(Yes + No))*100)
-cig_by_educDF$`Type of Smoke` <- ifelse(cig_by_educDF$`Type of Smoke` == "SMKCIGST_A", "Cigarette", "")
+#cigarette
+cig_by_educDF <- df_function(cig_by_education, binned_EDUC, SMKCIGST_A)
 
-#
-ecig_by_educDF <- ecig_by_education %>% 
-  as.data.frame()%>%
-  group_by(binned_EDUC)%>%
-  gather(`SMKECIGST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)%>%
-  mutate(Prevalence = (Yes/(Yes + No))*100)
-ecig_by_educDF$`Type of Smoke` <- ifelse(ecig_by_educDF$`Type of Smoke` == "SMKECIGST_A", "E-Cigarette", "")
+#ecigarette
+ecig_by_educDF <- df_function(ecig_by_education, binned_EDUC, SMKECIGST_A)
 
-#
-cigar_by_educDF <- cigar_by_education %>% 
-  as.data.frame()%>%
-  group_by(binned_EDUC)%>%
-  gather(`CIGARST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)%>%
-  mutate(Prevalence = (Yes/(Yes + No))*100)
-cigar_by_educDF$`Type of Smoke` <- ifelse(cigar_by_educDF$`Type of Smoke` == "CIGARST_A", "Cigar", "")
-#
-pipe_by_educDF <- pipe_by_education %>% 
-  as.data.frame()%>%
-  group_by(binned_EDUC)%>%
-  gather(`PIPEST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)%>%
-  mutate(Prevalence = (Yes/(Yes + No))*100)
-pipe_by_educDF$`Type of Smoke` <- ifelse(pipe_by_educDF$`Type of Smoke` == "PIPEST_A", "Pipe", "")
-#
-smkles_by_educDF <- smkles_by_education %>% 
-  as.data.frame()%>%
-  group_by(binned_EDUC)%>%
-  gather(`SMOKELSST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)%>%
-  mutate(Prevalence = (Yes/(Yes + No))*100)
-smkles_by_educDF$`Type of Smoke` <- ifelse(smkles_by_educDF$`Type of Smoke` == "SMOKELSST_A", "Smokeless Tobacco", "")
+#cigar
+cigar_by_educDF <- df_function(cigar_by_education, binned_EDUC, CIGARST_A)
+
+#pipe
+pipe_by_educDF <- df_function(pipe_by_education, binned_EDUC, PIPEST_A)
+
+#smokeless tobacco
+smkles_by_educDF <-df_function(smkles_by_education, binned_EDUC, SMOKELSST_A)
 
 smoking_by_educ <- rbind(cig_by_educDF, ecig_by_educDF, cigar_by_educDF, pipe_by_educDF,smkles_by_educDF)
 kable(smoking_by_educ, caption ="Smoking Prevalence by Education and type of Smoke")
@@ -360,48 +340,22 @@ smkles_by_pov <- svytable(~binned_RATCAT+SMOKELSST_A,
 ```
 
 ```{r}
-cig_by_povDF <- cig_by_pov %>% 
-  as.data.frame()%>%
-  group_by(binned_RATCAT)%>%
-  gather(`SMKCIGST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)%>%
-  mutate(Prevalence = (Yes/(Yes + No))*100)
-cig_by_povDF$`Type of Smoke` <- ifelse(cig_by_povDF$`Type of Smoke` == "SMKCIGST_A", "Cigarette", "")
+#cigarette
+cig_by_povDF <- df_function(cig_by_pov, binned_RATCAT, SMKCIGST_A)
 
-#
-ecig_by_povDF <- ecig_by_pov %>% 
-  as.data.frame()%>%
-  group_by(binned_RATCAT)%>%
-  gather(`SMKECIGST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)%>%
-  mutate(Prevalence = (Yes/(Yes + No))*100)
-ecig_by_povDF$`Type of Smoke` <- ifelse(ecig_by_povDF$`Type of Smoke` == "SMKECIGST_A", "E-Cigarette", "")
+#e-cigarette
+ecig_by_povDF <- df_function(ecig_by_pov, binned_RATCAT, SMKECIGST_A)
 
-#
-cigar_by_povDF <- cigar_by_pov %>% 
-  as.data.frame()%>%
-  group_by(binned_RATCAT)%>%
-  gather(`CIGARST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)%>%
-  mutate(Prevalence = (Yes/(Yes + No))*100)
-cigar_by_povDF$`Type of Smoke` <- ifelse(cigar_by_povDF$`Type of Smoke` == "CIGARST_A", "Cigar", "")
-#
-pipe_by_povDF <- pipe_by_pov %>% 
-  as.data.frame()%>%
-  group_by(binned_RATCAT)%>%
-  gather(`PIPEST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)%>%
-  mutate(Prevalence = (Yes/(Yes + No))*100)
-pipe_by_povDF$`Type of Smoke` <- ifelse(pipe_by_povDF$`Type of Smoke` == "PIPEST_A", "Pipe", "")
-#
-smkles_by_povDF <- smkles_by_pov %>% 
-  as.data.frame()%>%
-  group_by(binned_RATCAT)%>%
-  gather(`SMOKELSST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)%>%
-  mutate(Prevalence = (Yes/(Yes + No))*100)
-smkles_by_povDF$`Type of Smoke` <- ifelse(smkles_by_povDF$`Type of Smoke` == "SMOKELSST_A", "Smokeless Tobacco", "")
+#cigar
+cigar_by_povDF <- df_function(cigar_by_pov, binned_RATCAT, CIGARST_A)
 
+#pipe
+pipe_by_povDF <- df_function(pipe_by_pov, binned_RATCAT, PIPEST_A)
+
+#smokeless tobacco
+smkles_by_povDF <- df_function(smkles_by_pov, binned_RATCAT, SMOKELSST_A)
+
+#combining all 
 smoking_by_pov <- rbind(cig_by_povDF, ecig_by_povDF, cigar_by_povDF, pipe_by_povDF,smkles_by_povDF)
 kable(smoking_by_pov, caption ="Smoking Prevalence by Ratio of Family Income to Federal Poverty Level")
 
@@ -433,196 +387,137 @@ smkles_by_sexorient <- svytable(~ORIENT_A+SMOKELSST_A,
 ```
 
 ```{r}
-cig_by_sexorientDF <- cig_by_sexorient %>% 
-  as.data.frame()%>%
-  group_by(ORIENT_A)%>%
-  gather(`SMKCIGST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)%>%
-  mutate(Prevalence = (Yes/(Yes + No))*100)
-cig_by_sexorientDF$`Type of Smoke` <- ifelse(cig_by_sexorientDF$`Type of Smoke` == "SMKCIGST_A", "Cigarette", "")
+# cigarette
+cig_by_sexorientDF <- df_function(cig_by_sexorient, ORIENT_A, SMKCIGST_A)
 
-#
-ecig_by_sexorientDF <- ecig_by_sexorient %>% 
-  as.data.frame()%>%
-  group_by(ORIENT_A)%>%
-  gather(`SMKECIGST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)%>%
-  mutate(Prevalence = (Yes/(Yes + No))*100)
-ecig_by_sexorientDF$`Type of Smoke` <- ifelse(ecig_by_sexorientDF$`Type of Smoke` == "SMKECIGST_A", "E-Cigarette", "")
+# e-cigarette
+ecig_by_sexorientDF <- df_function(ecig_by_sexorient, ORIENT_A, SMKECIGST_A)
 
-#
-cigar_by_sexorientDF <- cigar_by_sexorient %>% 
-  as.data.frame()%>%
-  group_by(ORIENT_A)%>%
-  gather(`CIGARST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)%>%
-  mutate(Prevalence = (Yes/(Yes + No))*100)
-cigar_by_sexorientDF$`Type of Smoke` <- ifelse(cigar_by_sexorientDF$`Type of Smoke` == "CIGARST_A", "Cigar", "")
-#
-pipe_by_sexorientDF <- pipe_by_sexorient %>% 
-  as.data.frame()%>%
-  group_by(ORIENT_A)%>%
-  gather(`PIPEST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)%>%
-  mutate(Prevalence = (Yes/(Yes + No))*100)
-pipe_by_sexorientDF$`Type of Smoke` <- ifelse(pipe_by_sexorientDF$`Type of Smoke` == "PIPEST_A", "Pipe", "")
-#
-smkles_by_sexorientDF <- smkles_by_sexorient %>% 
-  as.data.frame()%>%
-  group_by(ORIENT_A)%>%
-  gather(`SMOKELSST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)%>%
-  mutate(Prevalence = (Yes/(Yes + No))*100)
-smkles_by_sexorientDF$`Type of Smoke` <- ifelse(smkles_by_sexorientDF$`Type of Smoke` == "SMOKELSST_A", "Smokeless Tobacco", "")
+# cigar
+cigar_by_sexorientDF <- df_function(cigar_by_sexorient, ORIENT_A, CIGARST_A)
 
+# pipe
+pipe_by_sexorientDF <- df_function(pipe_by_sexorient, ORIENT_A, PIPEST_A)
+
+# smokeless tobacco
+smkles_by_sexorientDF <- df_function(smkles_by_sexorient, ORIENT_A, SMOKELSST_A)
+
+# Combining all 
 smoking_by_sexorient <- rbind(cig_by_sexorientDF, ecig_by_sexorientDF, cigar_by_sexorientDF, pipe_by_sexorientDF,smkles_by_sexorientDF)
 kable(smoking_by_sexorient, caption ="Smoking Prevalence by Sexual Orientation")
 
 ```
 
 ## Smoking by Mental Health status
+<!--
+I created a separate mental health dataframe function because mental health relies on 2 variables;
+depression and anxiety
+-->
 
 ```{r}
-#creating depression data frames
+mental_health_df_function <- function(object, col_name_1, col_name_2){
+  object %>% 
+  as.data.frame()%>%
+  filter({{col_name_1}} == "Yes")%>%
+  gather({{col_name_1}}, key = "Mental Health", value = "Mental_hlth_status")%>%
+  gather({{col_name_2}}, key = "Type of Product", value = "Smoking Status")%>%
+  spread(`Smoking Status`, Freq)
+  
+}
+
+#creating depression objects
 cig_by_depress <- svytable(~DEPEV_A + SMKCIGST_A,
                            design = nhis19_design)
-cig_by_depressDF <- cig_by_depress %>%
-  as.data.frame()%>%
-  filter(DEPEV_A == "Yes")%>%
-  gather(`DEPEV_A`, key = "Mental Health", value = "Mental_hlth_status")%>%
-  gather(`SMKCIGST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)
-
 
 ecig_by_depress <- svytable(~DEPEV_A + SMKECIGST_A,
                            design = nhis19_design)
-ecig_by_depressDF <- ecig_by_depress %>%
-  as.data.frame()%>%
-  filter(DEPEV_A == "Yes")%>%
-  gather(`DEPEV_A`, key = "Mental Health", value = "Mental_hlth_status")%>%
-  gather(`SMKECIGST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)
 
 cigar_by_depress <- svytable(~DEPEV_A + CIGARST_A,
                            design = nhis19_design)
-cigar_by_depressDF <- cigar_by_depress %>%
-  as.data.frame()%>%
-  filter(DEPEV_A == "Yes")%>%
-  gather(`DEPEV_A`, key = "Mental Health", value = "Mental_hlth_status")%>%
-  gather(`CIGARST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)
 
 pipe_by_depress <- svytable(~DEPEV_A + PIPEST_A,
                            design = nhis19_design)
-pipe_by_depressDF <- pipe_by_depress %>%
-  as.data.frame()%>%
-  filter(DEPEV_A == "Yes")%>%
-  gather(`DEPEV_A`, key = "Mental Health", value = "Mental_hlth_status")%>%
-  gather(`PIPEST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)
 
 smkles_by_depress <- svytable(~DEPEV_A + SMOKELSST_A,
                            design = nhis19_design)
-smkles_by_depressDF <- smkles_by_depress %>%
-  as.data.frame()%>%
-  filter(DEPEV_A == "Yes")%>%
-  gather(`DEPEV_A`, key = "Mental Health", value = "Mental_hlth_status")%>%
-  gather(`SMOKELSST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)
 
-#creating anxiety data frames
+#creating anxiety objects
 cig_by_anxiety <- svytable(~ANXEV_A + SMKCIGST_A,
                            design = nhis19_design)
-cig_by_anxietyDF <- cig_by_anxiety %>%
-  as.data.frame()%>%
-  filter(ANXEV_A == "Yes")%>%
-  gather(`ANXEV_A`, key = "Mental Health", value = "Mental_hlth_status")%>%
-  gather(`SMKCIGST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)
-
 
 ecig_by_anxiety <- svytable(~ANXEV_A + SMKECIGST_A,
                            design = nhis19_design)
-ecig_by_anxietyDF <- ecig_by_anxiety %>%
-  as.data.frame()%>%
-  filter(ANXEV_A == "Yes")%>%
-  gather(`ANXEV_A`, key = "Mental Health", value = "Mental_hlth_status")%>%
-  gather(`SMKECIGST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)
 
 cigar_by_anxiety <- svytable(~ANXEV_A + CIGARST_A,
                            design = nhis19_design)
-cigar_by_anxietyDF <- cigar_by_anxiety %>%
-  as.data.frame()%>%
-  filter(ANXEV_A == "Yes")%>%
-  gather(`ANXEV_A`, key = "Mental Health", value = "Mental_hlth_status")%>%
-  gather(`CIGARST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)
 
 pipe_by_anxiety <- svytable(~ANXEV_A + PIPEST_A,
                            design = nhis19_design)
-pipe_by_anxietyDF <- pipe_by_anxiety %>%
-  as.data.frame()%>%
-  filter(ANXEV_A == "Yes")%>%
-  gather(`ANXEV_A`, key = "Mental Health", value = "Mental_hlth_status")%>%
-  gather(`PIPEST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)
 
 smkles_by_anxiety <- svytable(~ANXEV_A + SMOKELSST_A,
                            design = nhis19_design)
-smkles_by_anxietyDF <- smkles_by_anxiety %>%
-  as.data.frame()%>%
-  filter(ANXEV_A == "Yes")%>%
-  gather(`ANXEV_A`, key = "Mental Health", value = "Mental_hlth_status")%>%
-  gather(`SMOKELSST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)
 
 #creating data frames for Dementia
 cig_by_dementia <- svytable(~DEMENEV_A + SMKCIGST_A,
                            design = nhis19_design)
-cig_by_dementiaDF <- cig_by_dementia %>%
-  as.data.frame()%>%
-  filter(DEMENEV_A == "Yes")%>%
-  gather(`DEMENEV_A`, key = "Mental Health", value = "Mental_hlth_status")%>%
-  gather(`SMKCIGST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)
 
 
-ecig_by_dementia <- svytable(~DEMENEV_A + SMKECIGST_A,
-                           design = nhis19_design)
-ecig_by_dementiaDF <- ecig_by_dementia %>%
-  as.data.frame()%>%
-  filter(DEMENEV_A == "Yes")%>%
-  gather(`DEMENEV_A`, key = "Mental Health", value = "Mental_hlth_status")%>%
-  gather(`SMKECIGST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)
 
 cigar_by_dementia <- svytable(~DEMENEV_A + CIGARST_A,
                            design = nhis19_design)
-cigar_by_dementiaDF <- cigar_by_dementia %>%
-  as.data.frame()%>%
-  filter(DEMENEV_A == "Yes")%>%
-  gather(`DEMENEV_A`, key = "Mental Health", value = "Mental_hlth_status")%>%
-  gather(`CIGARST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)
+
+ecig_by_dementia <- svytable(~DEMENEV_A + SMKECIGST_A,
+                           design = nhis19_design)
 
 pipe_by_dementia <- svytable(~DEMENEV_A + PIPEST_A,
                            design = nhis19_design)
-pipe_by_dementiaDF <- pipe_by_dementia %>%
-  as.data.frame()%>%
-  filter(DEMENEV_A == "Yes")%>%
-  gather(`DEMENEV_A`, key = "Mental Health", value = "Mental_hlth_status")%>%
-  gather(`PIPEST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)
 
 smkles_by_dementia <- svytable(~DEMENEV_A+ SMOKELSST_A,
                            design = nhis19_design)
-smkles_by_dementiaDF <- smkles_by_dementia %>%
-  as.data.frame()%>%
-  filter(DEMENEV_A == "Yes")%>%
-  gather(`DEMENEV_A`, key = "Mental Health", value = "Mental_hlth_status")%>%
-  gather(`SMOKELSST_A`, key = "Type of Smoke", value = "Smoking Status")%>%
-  spread(`Smoking Status`, Freq)
+
+
+#creating depression data frames
+cig_by_depressDF <- mental_health_df_function(cig_by_depress, DEPEV_A, SMKCIGST_A)
+
+
+ecig_by_depressDF <- mental_health_df_function(ecig_by_depress, DEPEV_A, SMKECIGST_A)
+
+
+cigar_by_depressDF <- mental_health_df_function(cigar_by_depress, DEPEV_A, CIGARST_A)
+
+
+pipe_by_depressDF <- mental_health_df_function(pipe_by_depress, DEPEV_A, PIPEST_A)
+
+
+smkles_by_depressDF <- mental_health_df_function(smkles_by_depress, DEPEV_A, SMOKELSST_A)
+
+
+#creating anxiety data frames
+cig_by_anxietyDF <- mental_health_df_function(cig_by_anxiety, ANXEV_A, SMKCIGST_A)
+
+ecig_by_anxietyDF <- mental_health_df_function(ecig_by_anxiety, ANXEV_A, SMKECIGST_A) 
+
+
+cigar_by_anxietyDF <- mental_health_df_function(cigar_by_anxiety, ANXEV_A, CIGARST_A)
+
+
+pipe_by_anxietyDF <- mental_health_df_function(pipe_by_anxiety, ANXEV_A, PIPEST_A)
+
+
+smkles_by_anxietyDF <- mental_health_df_function(smkles_by_anxiety, ANXEV_A, SMOKELSST_A)
+
+
+#creating dementia data frames
+
+cig_by_dementiaDF <- mental_health_df_function(cig_by_dementia, DEMENEV_A, SMKCIGST_A)
+
+ecig_by_dementiaDF <- mental_health_df_function(ecig_by_dementia, DEMENEV_A, SMKECIGST_A) 
+
+cigar_by_dementiaDF <- mental_health_df_function(cigar_by_dementia, DEMENEV_A, CIGARST_A)
+
+pipe_by_dementiaDF <- mental_health_df_function(pipe_by_dementia, DEMENEV_A, PIPEST_A)
+
+smkles_by_dementiaDF <- mental_health_df_function(smkles_by_dementia, DEMENEV_A, SMOKELSST_A)
 
 smoking_by_mentalhlth <- bind_rows(cig_by_depressDF, cig_by_anxietyDF, cig_by_dementiaDF,
                                    ecig_by_depressDF, ecig_by_anxietyDF, ecig_by_dementiaDF,
@@ -632,17 +527,20 @@ smoking_by_mentalhlth <- bind_rows(cig_by_depressDF, cig_by_anxietyDF, cig_by_de
 
 smoking_by_mentalhlth <- select(smoking_by_mentalhlth, -Mental_hlth_status)
 
-smoking_by_mentalhlth$`Type of Smoke` <- ifelse(smoking_by_mentalhlth$`Type of Smoke` == "SMKCIGST_A", "Cigarette",
-                                         ifelse(smoking_by_mentalhlth$`Type of Smoke` == "SMKECIGST_A", "E-cigarette",
-                                         ifelse(smoking_by_mentalhlth$`Type of Smoke` == "PIPEST_A", "Pipe",
-                                         ifelse(smoking_by_mentalhlth$`Type of Smoke` == "CIGARST_A", "Cigar",
-                                         ifelse(smoking_by_mentalhlth$`Type of Smoke` == "SMOKELSST_A", "Smokeless Tobacco", "")))))
+
+smoking_by_mentalhlth$`Type of Product` <- ifelse(smoking_by_mentalhlth$`Type of Product` == "SMKCIGST_A", "Cigarette",
+                                         ifelse(smoking_by_mentalhlth$`Type of Product` == "SMKECIGST_A", "E-cigarette",
+                                         ifelse(smoking_by_mentalhlth$`Type of Product` == "PIPEST_A", "Pipe",
+                                         ifelse(smoking_by_mentalhlth$`Type of Product` == "CIGARST_A", "Cigar",
+                                         ifelse(smoking_by_mentalhlth$`Type of Product` == "SMOKELSST_A", "Smokeless Tobacco", "")))))
 
 smoking_by_mentalhlth$`Mental Health` <- ifelse(smoking_by_mentalhlth$`Mental Health` == "DEPEV_A", "Depression",
                                          ifelse(smoking_by_mentalhlth$`Mental Health` == "ANXEV_A", "Anxiety",
                                          ifelse(smoking_by_mentalhlth$`Mental Health` == "DEMENEV_A", "Dementia", "")))
 
-smoking_by_mentalhlth <- mutate(smoking_by_mentalhlth, Prevalence = (Yes/(Yes + No))*100)
+smoking_by_mentalhlth <- mutate(smoking_by_mentalhlth, `Prevalence (%)` = round((Yes/(Yes + No))*100, 1))
+smoking_by_mentalhlth  <- smoking_by_mentalhlth %>%
+  select(`Mental Health`,`Type of Product`, `Prevalence (%)`)
 kable(smoking_by_mentalhlth, caption = "Prevalence of Smoking among people with Mental health Problems")
 ```
 
@@ -654,7 +552,7 @@ cig_by_agedual <- svytable(~binned_age + SMKCIGST_A,
 cig_by_agedual <- cig_by_agedual%>%
   as.data.frame()%>%
   spread(`SMKCIGST_A`, Freq)%>%
-  mutate(`Prevalence of cigarette` = (Yes/(Yes + No))*100)%>%
+  mutate(`Prevalence of cigarette` = round((Yes/(Yes + No))*100, 1))%>%
   select(binned_age, `Prevalence of cigarette`)
 
 
@@ -663,7 +561,7 @@ ecig_by_agedual <- svytable(~binned_age + SMKECIGST_A,
 ecig_by_agedual <- ecig_by_agedual%>%
   as.data.frame()%>%
   spread(`SMKECIGST_A`, Freq)%>%
-  mutate(`Prevalence of E-cigarette` = (Yes/(Yes + No))*100)%>%
+  mutate(`Prevalence of E-cigarette` = round((Yes/(Yes + No))*100, 1))%>%
   select(`Prevalence of E-cigarette`)
   
 
@@ -673,7 +571,7 @@ cigar_by_agedual <- svytable(~binned_age +CIGARST_A,
 cigar_by_agedual <- cigar_by_agedual%>%
   as.data.frame()%>%
   spread(`CIGARST_A`, Freq)%>%
-  mutate(`Prevalence of Cigar` = (Yes/(Yes + No))*100)%>%
+  mutate(`Prevalence of Cigar` = round((Yes/(Yes + No))*100, 1))%>%
   select(`Prevalence of Cigar`)
 
 
@@ -682,7 +580,7 @@ pipe_by_agedual <- svytable(~binned_age + PIPEST_A,
 pipe_by_agedual <- pipe_by_agedual%>%
   as.data.frame()%>%
   spread(`PIPEST_A`, Freq)%>%
-  mutate(`Prevalence of Pipe` = (Yes/(Yes + No))*100)%>%
+  mutate(`Prevalence of Pipe` = round((Yes/(Yes + No))*100, 1))%>%
   select(`Prevalence of Pipe`)
   
 
@@ -691,7 +589,7 @@ smkles_by_agedual <- svytable(~binned_age + SMOKELSST_A,
 smkles_by_agedual <- smkles_by_agedual%>%
   as.data.frame()%>%
   spread(`SMOKELSST_A`, Freq)%>%
-  mutate(`Prevalence of Smokeless Tobacco` = (Yes/(Yes + No))*100)%>%
+  mutate(`Prevalence of Smokeless Tobacco` = round((Yes/(Yes + No))*100, 1))%>%
   select(`Prevalence of Smokeless Tobacco`)
   
 
@@ -700,7 +598,7 @@ cig_ecig_by_agedual <- svytable(~binned_age + cig_ecig,
 cig_ecig_by_agedual <- cig_ecig_by_agedual%>%
    as.data.frame()%>%
   spread(cig_ecig, Freq)%>%
-  mutate(`Dual prevalence cigaratte and e-cig` = (Yes/(Yes + No))*100)%>%
+  mutate(`Dual prevalence cigaratte and e-cig` = round((Yes/(Yes + No))*100, 1))%>%
   select(`Dual prevalence cigaratte and e-cig`)
   
 
@@ -709,7 +607,7 @@ cig_pipe_by_agedual <- svytable(~binned_age + cig_pipe,
 cig_pipe_by_agedual <- cig_pipe_by_agedual%>%
   as.data.frame()%>%
   spread(`cig_pipe`, Freq)%>%
-  mutate(`Dual prevalence cigaratte and pipe` = (Yes/(Yes + No))*100)%>%
+  mutate(`Dual prevalence cigaratte and pipe` = round((Yes/(Yes + No))*100, 1))%>%
   select(`Dual prevalence cigaratte and pipe`)
 
 cig_cigar_by_agedual <- svytable(~binned_age + cig_cigar,
@@ -717,7 +615,7 @@ cig_cigar_by_agedual <- svytable(~binned_age + cig_cigar,
 cig_cigar_by_agedual <- cig_cigar_by_agedual%>%
   as.data.frame()%>%
   spread(`cig_cigar`, Freq)%>%
-  mutate(`Dual prevalence cigaratte and cigar` = (Yes/(Yes + No))*100)%>%
+  mutate(`Dual prevalence cigaratte and cigar` = round((Yes/(Yes + No))*100, 1))%>%
   select(`Dual prevalence cigaratte and cigar`)
   
 
@@ -726,7 +624,7 @@ cig_smkles_by_agedual <- svytable(~binned_age + cig_smkles,
 cig_smkles_by_agedual <- cig_smkles_by_agedual%>%
   as.data.frame()%>%
   spread(`cig_smkles`, Freq)%>%
-  mutate(`Dual prevalence cigaratte and smokeless tobacco` = (Yes/(Yes + No))*100)%>%
+  mutate(`Dual prevalence cigaratte and smokeless tobacco` = round((Yes/(Yes + No))*100, 1))%>%
   select(`Dual prevalence cigaratte and smokeless tobacco`)
   
 cig_ecig_table <- bind_cols(cig_by_agedual, ecig_by_agedual, cig_ecig_by_agedual)

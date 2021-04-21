@@ -54,6 +54,7 @@ nhis18_modelling$`FOOD SECURITY` <- ifelse(nhis18_modelling$`FOOD SECURITY` == "
 nhis18_modelling$DATE_INTERVIEW <- as.character(make_date(nhis18_modelling$YEAR, 
                                                               nhis18_modelling$MONTH,
                                                               nhis18_modelling$DAY))
+
 #assigning missing variables to the quit variables
 nhis18_modelling$SMKQTNO <- ifelse(nhis18_modelling$SMKQTNO == 97|nhis18_modelling$SMKQTNO == 98|nhis18_modelling$SMKQTNO == 99, NA,
                                        nhis18_modelling$SMKQTNO)
@@ -93,5 +94,12 @@ nhis18_modelling$QUIT_SMOKING_YEAR <- year(ymd(nhis18_modelling$DATE_QUIT_SMOKIN
 # 2 means did not attempt to quit smoking in the past year
 nhis18_modelling$CIGQTYR <- ifelse(nhis18_modelling$CIGQTYR == 1, 1,
                                    ifelse(nhis18_modelling$CIGQTYR == 2, 0, NA))
+
+#We took out data for people who are between 18 to 24 years old.
+#if people aged 18 to 24 are needed, commenting out the code below and running
+# the whole program would return a data set that includes people who are 18 to 24
+
 nhis18_modelling <- subset(nhis18_modelling, nhis18_modelling$AGE != "18-24")
+
+#This code saves a CSV ready for the log regression analysis into the directory
 write_csv(nhis18_modelling, "nhis18_modelling.csv")
